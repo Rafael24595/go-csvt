@@ -1,0 +1,13 @@
+/** Lang&fc2d3b2a541ee9ef4fe80e26e672cfc9e569594f
+H-> Name;Tags;Attributes
+0-> "Go";$common-array_1;$common-map_1:
+
+/// common-array
+H-> 
+0-> |
+1-> "go","golang"|
+
+/// common-map
+H-> 
+0-> ^
+1-> "oop"="some","procedural"="true","functional"="false"^

@@ -6,17 +6,66 @@ import (
 	"reflect"
 )
 
+// UnmarshalOptions defines the configuration for the CSV deserialization process.
+// Currently it includes:
+//   - strict: when set to true, deserialization will return an error if a field
+//             in the target struct does not exist in the CSV tables.
+type UnmarshalOptions struct {
+	Strict bool
+}
+
+var defaultUnmarshalOpts = UnmarshalOptions{
+	Strict: false,
+}
+
 type csvtDeserializer struct {
+	opts   UnmarshalOptions
 	tables table
 }
 
+// Unmarshal decodes the CSVT data into the provided value using default
+// deserialization options. The value parameter must be a pointer to a struct
+// or a slice of structs.
+//
+// Parameters:
+//   - data: the CSV-formatted input as a byte slice
+//   - value: a pointer to a struct or slice of structs to populate
+//
+// Returns an error if deserialization fails at any stage.
+//
+// Example:
+//   var result MyStruct
+//   err := csvt.Unmarshal(data, &result)
+//
+//   var list []MyStruct
+//   err := csvt.Unmarshal(data, &list)
 func Unmarshal[T any](data []byte, value *T) error {
+	return UnmarshalOpts(data, value, defaultUnmarshalOpts)
+}
+
+// UnmarshalOpts decodes the CSVT data into the provided value using the given
+// deserialization options. It behaves the same as Unmarshal, but allows
+// configuring the process via UnmarshalOptions.
+//
+// Parameters:
+//   - data: the CSVT-formatted input as a byte slice
+//   - value: a pointer to a struct or slice of structs to populate
+//   - opts: deserialization options (e.g., strict mode)
+//
+// Returns an error if deserialization fails at any stage.
+//
+// Example:
+//   var result MyStruct
+//   opts := UnmarshalOptions{ Strict: true }
+//   err := csvt.UnmarshalOpts(data, &result, opts)
+func UnmarshalOpts[T any](data []byte, value *T, opts UnmarshalOptions) error {
 	tables, err := newReader().read(data)
 	if err != nil {
 		return err
 	}
 
 	instance := &csvtDeserializer{
+		opts:   opts,
 		tables: *tables,
 	}
 
@@ -95,7 +144,10 @@ func (d *csvtDeserializer) makeStr(template any, root *group) (reflect.Value, er
 
 		node, ok := root.findField(name)
 		if !ok {
-			return reflect.Value{}, fmt.Errorf("field \"%s\" not found", name)
+			if d.opts.Strict {
+				return reflect.Value{}, MissingField(name)
+			}
+			continue
 		}
 
 		if !isCommonType(fieldTemplate) {
@@ -103,10 +155,12 @@ func (d *csvtDeserializer) makeStr(template any, root *group) (reflect.Value, er
 			if !ok {
 				return reflect.Value{}, fmt.Errorf("field \"%s\" reference \"%s\" not found", name, node.key())
 			}
+
 			element, err := d.makeElement(fieldTemplate, reference)
 			if err != nil {
 				return reflect.Value{}, err
 			}
+			
 			field.Set(element)
 
 			continue
@@ -121,12 +175,12 @@ func (d *csvtDeserializer) makeStr(template any, root *group) (reflect.Value, er
 
 		valueRef := reflect.ValueOf(node.value)
 		if field.Type() != valueRef.Type() {
-			if valueRef.Type().ConvertibleTo(field.Type()) {
-				valueRef = valueRef.Convert(field.Type())
-			} else {
-				err := fmt.Errorf("field \"%s\" type must be \"%s\", but \"%s\" found", name, field.Type().Name(), valueRef.Type().Name())
+			if !valueRef.Type().ConvertibleTo(field.Type()) {
+				err := TypeMismatchf(field.Type().Name(), valueRef.Type().Name(), "field \"%s\"", name)
 				return reflect.Value{}, err
 			}
+
+			valueRef = valueRef.Convert(field.Type())
 		}
 
 		field.Set(valueRef)
@@ -157,13 +211,14 @@ func (d *csvtDeserializer) makeMap(template any, root *group) (reflect.Value, er
 		k := p.Key()
 		v := p.Value()
 
-		index := reflect.ValueOf(k)
+		kv := reflect.ValueOf(k)
 
 		if v.index == -1 {
-			mapp.SetMapIndex(index.Convert(mapKeysType), index.Convert(mapValuesType))
+			vv := reflect.ValueOf(v.value)
+			mapp.SetMapIndex(kv.Convert(mapKeysType), vv.Convert(mapValuesType))
 			continue
 		}
-		
+
 		reference, ok := d.tables.Find(&v)
 		if !ok {
 			return reflect.Value{}, fmt.Errorf("field \"%s\" is not valid", k)
@@ -174,7 +229,7 @@ func (d *csvtDeserializer) makeMap(template any, root *group) (reflect.Value, er
 			return reflect.Value{}, err
 		}
 
-		mapp.SetMapIndex(index.Convert(mapKeysType), value)
+		mapp.SetMapIndex(kv.Convert(mapKeysType), value)
 	}
 	return mapp, nil
 }
@@ -195,7 +250,7 @@ func (d *csvtDeserializer) makeArr(template any, root *group) (reflect.Value, er
 		if v.index == -1 {
 			elem := reflect.ValueOf(v.value)
 			if elem.Type() != arrValuesType && !elem.CanConvert(arrValuesType) {
-				err := fmt.Errorf("array position \"%d\" type must be \"%s\", but \"%s\" found", i, elem.Type().Name(), arrValuesType)
+				err := TypeMismatchf(elem.Type().Name(), arrValuesType, "array position \"%d\"", i)
 				return reflect.Value{}, err
 			}
 
@@ -215,7 +270,7 @@ func (d *csvtDeserializer) makeArr(template any, root *group) (reflect.Value, er
 		}
 
 		if value.Type() != arrValuesType && !value.CanConvert(arrValuesType) {
-			err := fmt.Errorf("array position \"%d\" type must be \"%s\", but \"%s\" found", i, value.Type().Name(), arrValuesType)
+			err := TypeMismatchf(value.Type().Name(), arrValuesType, "array position \"%d\"", i)
 			return reflect.Value{}, err
 		}
 
@@ -234,7 +289,7 @@ func makeObj(template any, root *group) (reflect.Value, error) {
 
 	valueRef := reflect.ValueOf(node.value)
 	if element.Type().Kind() != valueRef.Type().Kind() {
-		err := fmt.Errorf("field category \"%s\" type must be \"%s\", but \"%s\" found", root.category, element.Type().Name(), valueRef.Type().Name())
+		err := TypeMismatchf(element.Type().Name(), valueRef.Type().Name(), "field category \"%s\" type", root.category)
 		return reflect.Value{}, err
 	}
 

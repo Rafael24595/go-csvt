@@ -8,7 +8,3 @@ const (
 	STR category = "STR"
 	OBJ category = "OBJ"
 )
-
-func (m category) String() string {
-	return string(m)
-}
