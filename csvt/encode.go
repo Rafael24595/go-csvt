@@ -18,14 +18,63 @@ const (
 	POINTER_INDEX_FIX = 2
 )
 
+// MarshalOptions defines the configuration for the CSV serialization process.
+// Currently it includes:
+//   - Compact: when set to true, dentical serialized rows should be
+//              deduplicated by caching and referenced via pointers.
+type MarshalOptions struct {
+	Compact bool
+}
+
+var defaultMarshalOpts = MarshalOptions{
+	Compact: true,
+}
+
 type csvtSerializer struct {
+	opts        MarshalOptions
 	tables      map[string][]string
+	cache       map[string]string
 	nilPointers map[string]string
 }
 
+// Marshal encodes the provided value into CSVT using default
+// serialization options. The value parameter must be a struct
+// or a slice of structs.
+//
+// Parameters:
+//   - value: a struct or slice of structs to serialize
+//
+// Returns an error if serialization fails at any stage.
+//
+// Example:
+//   var item MyStruct
+//   bytes, err := csvt.Marshal(item)
+//
+//   var items []MyStruct
+//   bytes, err := csvt.Marshal(items...)
 func Marshal(v ...any) ([]byte, error) {
+	return MarshalOpts(defaultMarshalOpts, v...)
+}
+
+// MarshalOpts encodes the provided value into CSVT using the given
+// serialization options. It behaves the same as Marshal, but allows
+// configuring the process via MarshalOptions.
+//
+// Parameters:
+//   - value: a struct or slice of structs to serialize
+//   - opts: serialization options (e.g., compact mode)
+//
+// Returns an error if serialization fails at any stage.
+//
+// Example:
+//   var item MyStruct
+//   opts := csvt.MarshalOptions{ Compact: false }
+//   bytes, err := csvt.MarshalOpts(opts, item)
+func MarshalOpts(opts MarshalOptions, v ...any) ([]byte, error) {
 	instance := &csvtSerializer{
+		opts:        opts,
 		tables:      make(map[string][]string),
+		cache:       make(map[string]string),
 		nilPointers: make(map[string]string),
 	}
 
@@ -115,16 +164,26 @@ func (s *csvtSerializer) serialize(entity any) (string, error) {
 		return "", err
 	}
 
+	if s.opts.Compact {
+		if pointer, ok := s.cache[row]; ok {
+			return pointer, nil
+		}
+	}
+
 	s.tables[key] = append(s.tables[key], row)
 	pointer := s.formatPointerReference(key, len(s.tables[key]))
+
+	if s.opts.Compact {
+		s.cache[row] = pointer
+	}
 
 	return pointer, nil
 }
 
 func (s *csvtSerializer) canEmpty(entity reflect.Value) bool {
 	kind := entity.Kind()
-	return kind == reflect.Array || kind == reflect.Chan || 
-		kind == reflect.Map || kind == reflect.Slice || 
+	return kind == reflect.Array || kind == reflect.Chan ||
+		kind == reflect.Map || kind == reflect.Slice ||
 		kind == reflect.String
 }
 
@@ -192,7 +251,7 @@ func (s *csvtSerializer) serializeMap(entity reflect.Value) (string, error) {
 		} else {
 			key = sprintf("%v", key)
 		}
-			
+
 		value := entity.MapIndex(k).Interface()
 		if !isCommonType(value) {
 			value, err = s.serialize(value)

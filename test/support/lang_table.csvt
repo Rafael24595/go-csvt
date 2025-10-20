@@ -1,0 +1,21 @@
+/** Lang&fc2d3b2a541ee9ef4fe80e26e672cfc9e569594f
+H-> Name;Release;Tags;Attributes
+0-> "Go";$Release&5a5fb74a27bca302170bf2d87c53fdf2dd358d03_0;$common-array_1;$common-map_1:
+1-> "Zig";$Release&5a5fb74a27bca302170bf2d87c53fdf2dd358d03_1;$common-array_2;$common-map_2:
+
+/// Release&5a5fb74a27bca302170bf2d87c53fdf2dd358d03
+H-> Version;Stable
+0-> "1.25.3";true:
+1-> "0.16.0-dev.747+493ad58ff";false:
+
+/// common-array
+H-> 
+0-> |
+1-> "go","golang"|
+2-> "zig","ziglang"|
+
+/// common-map
+H-> 
+0-> ^
+1-> "oop"="some","procedural"="true","functional"="false"^
+2-> "oop"="false","procedural"="true","functional"="false"^
