@@ -56,7 +56,7 @@ func Unmarshal[T any](data []byte, value *T) error {
 //
 // Example:
 //   var result MyStruct
-//   opts := UnmarshalOptions{ Strict: true }
+//   opts := csvt.UnmarshalOptions{ Strict: true }
 //   err := csvt.UnmarshalOpts(data, &result, opts)
 func UnmarshalOpts[T any](data []byte, value *T, opts UnmarshalOptions) error {
 	tables, err := newReader().read(data)

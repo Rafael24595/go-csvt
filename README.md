@@ -64,6 +64,41 @@ H-> Order;Private;Status;Value
 1-> 0;false;true;"http://localhost:8080":
 ```
 
+### Serialization & Deserialization Options
+
+#### MarshalOptions
+
+| Option    | Type   | Default | Description |
+| --------- | ------ | ------- | ----------- |
+| `Compact` | `bool` | `true`  | When enabled, identical structures are only serialized once and subsequent occurrences are replaced by references (e.g. `$User_0`). This reduces output size and increases readability, but requires additional caching during serialization. |
+
+**Recommended**: Keep compact enabled unless your use case strictly requires full row duplication.
+
+**Example**
+
+```go
+opts := csvt.MarshalOptions{ Compact: false }
+bytes, err := csvt.MarshalOpts(opts, item)
+```
+
+#### UnmarshalOptions
+
+| Option   | Type   | Default   | Description|
+| -------- | ------ | --------- | ---------- |
+| `Strict` | `bool` | `false`   | When enabled, an error is returned if the CSVT input contains a field that does not exist in the target struct. If disabled, unknown fields are simply ignored. |
+
+Use cases:
+
+- Enable Strict for validation-oriented workflows or schema enforcement.
+- Disable Strict for flexible deserialization when the input may evolve over time.
+
+**Example**
+
+```go
+opts := csvt.UnmarshalOptions{ Strict: true }
+err := csvt.UnmarshalOpts(data, &result, opts)
+```
+
 ## Installation
 
 ```bash

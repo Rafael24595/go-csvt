@@ -68,7 +68,7 @@ func Marshal(v ...any) ([]byte, error) {
 //
 // Example:
 //   var item MyStruct
-//   opts := MarshalOptions{ Compact: false }
+//   opts := csvt.MarshalOptions{ Compact: false }
 //   bytes, err := csvt.MarshalOpts(opts, item)
 func MarshalOpts(opts MarshalOptions, v ...any) ([]byte, error) {
 	instance := &csvtSerializer{
