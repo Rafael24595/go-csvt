@@ -1,5 +1,5 @@
 module github.com/Rafael24595/go-csvt
 
-go 1.24.0
+go 1.25.3
 
-require github.com/Rafael24595/go-collections v0.2.3
+require github.com/Rafael24595/go-collections v0.2.4
