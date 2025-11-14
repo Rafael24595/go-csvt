@@ -23,10 +23,10 @@ func newGroup[T any](category category, headers []string, grp T) group {
 func (r *group) findField(key string) (*node, bool) {
 	switch v := r.group.(type) {
 	case []node:
-		index, exists := r.headers.IndexOf(func(s string) bool {
+		index := r.headers.IndexOf(func(s string) bool {
 			return s == key
 		})
-		if !exists || index > len(v) {
+		if index == -1 || index > len(v) {
 			return nil, false
 		}
 		return &v[index], true
