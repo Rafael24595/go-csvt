@@ -14,9 +14,10 @@ func newTable(nexus map[string]nexus) table {
 }
 
 func (r *table) root() (*nexus, bool) {
-	return r.nexus.FindOne(func(k string, rn nexus) bool {
+	nexus, ok := r.nexus.FindOne(func(k string, rn nexus) bool {
 		return rn.root
 	})
+	return &nexus, ok
 }
 
 func (r *table) Find(node *node) (*group, bool) {
@@ -25,7 +26,8 @@ func (r *table) Find(node *node) (*group, bool) {
 		return nil, false
 	}
 	if node.index != -1 {
-		return value.nodes.Get(node.index)
+		group, ok := value.nodes.Get(node.index)
+		return &group, ok
 	}
 	return nil, false
 }
