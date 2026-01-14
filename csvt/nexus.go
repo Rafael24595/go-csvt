@@ -17,5 +17,6 @@ func newNexus(key string, root bool, nodes []group) nexus {
 }
 
 func (r *nexus) get(position int) (*group, bool) {
-	return r.nodes.Get(position)
+	group, ok := r.nodes.Get(position)
+	return &group, ok
 }
